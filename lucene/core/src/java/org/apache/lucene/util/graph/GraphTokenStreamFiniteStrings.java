@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute;
 import org.apache.lucene.analysis.tokenattributes.PositionLengthAttribute;
 import org.apache.lucene.analysis.tokenattributes.TermToBytesRefAttribute;
@@ -202,6 +203,7 @@ public final class GraphTokenStreamFiniteStrings {
 
     final PositionIncrementAttribute posIncAtt = in.addAttribute(PositionIncrementAttribute.class);
     final PositionLengthAttribute posLengthAtt = in.addAttribute(PositionLengthAttribute.class);
+    final CharTermAttribute charAtt = in.addAttribute(CharTermAttribute.class);
 
     in.reset();
 
@@ -210,7 +212,9 @@ public final class GraphTokenStreamFiniteStrings {
     int state = -1;
     int id = -1;
     int gap = 0;
+    int prevPosLength = -1;
     while (in.incrementToken()) {
+      // System.out.println("token: " + charAtt.toString());
       int currentIncr = posIncAtt.getPositionIncrement();
       if (pos == -1 && currentIncr < 1) {
         throw new IllegalStateException("Malformed TokenStream, start token can't have increment less than 1");
@@ -222,11 +226,17 @@ public final class GraphTokenStreamFiniteStrings {
         }
       }
       else {
-        pos++;
-        gap = currentIncr - 1;
+        if (currentIncr > 1 && prevPosLength == currentIncr) {
+          pos += currentIncr;
+        } else {
+          pos++;
+          gap = currentIncr - 1;
+        }
       }
 
       int endPos = pos + posLengthAtt.getPositionLength() + gap;
+      prevPosLength = posLengthAtt.getPositionLength();
+      // System.out.println("endPos: " + endPos);
       while (state < endPos) {
         state = builder.createState();
       }
@@ -238,6 +248,7 @@ public final class GraphTokenStreamFiniteStrings {
 
       tokens[id] = in.cloneAttributes();
       builder.addTransition(pos, endPos, id);
+      // System.out.println("add transition: source=" + pos + ", dest=" + endPos + ", label=" + id);
       pos += gap;
 
       // we always produce linear token graphs from getFiniteStrings(), so we need to adjust
@@ -256,6 +267,7 @@ public final class GraphTokenStreamFiniteStrings {
 
     in.end();
     if (state != -1) {
+      // System.out.println("-> accept state " + state);
       builder.setAccept(state, true);
     }
     return builder.finish();

@@ -642,5 +642,46 @@ public class TestGraphTokenStreamFiniteStrings extends LuceneTestCase {
     assertTokenStream(it.next(), new String[]{ "king", "alfred", "saxons", "ruled" }, new int[]{ 1, 1, 3, 1 });
     assertFalse(it.hasNext());
   }
+  
+  public void testDeletedSidePath() throws Exception {
+    // 0    1    2  3
+    // 3d:2 [3] [d] printer
+    CannedTokenStream cts = new CannedTokenStream(
+        token("3d", 1, 2),
+        token("printer", 2, 1));
+    GraphTokenStreamFiniteStrings graph = new GraphTokenStreamFiniteStrings(cts);
+    Iterator<TokenStream> it = graph.getFiniteStrings();
+    assertTrue(it.hasNext());
+    assertTokenStream(it.next(), new String[] {"3d", "printer"}, new int[] {1, 2});
+    assertFalse(it.hasNext());
+  }
+    
+  public void testDeletedPartialSidePath() throws Exception {
+    // 0    1  2  3
+    // 3d:2 3 [d] printer
+    CannedTokenStream cts = new CannedTokenStream(
+        token("3d", 1, 2),
+        token("3", 0, 1),
+        token("printer", 2, 1));
+    GraphTokenStreamFiniteStrings graph = new GraphTokenStreamFiniteStrings(cts);
+    Iterator<TokenStream> it = graph.getFiniteStrings();
+    assertTrue(it.hasNext());
+    assertTokenStream(it.next(), new String[] {"3", "printer"}, new int[] {1, 2});
+    assertFalse(it.hasNext());
+  }
+    
+  public void testDeletedPartialSidePath2() throws Exception {
+    // 0    1  2  3
+    // 3d:2 3 [d] printer
+    CannedTokenStream cts = new CannedTokenStream(
+        token("3d", 1, 2),
+        token("d", 1, 1),
+        token("printer", 2, 1));
+    GraphTokenStreamFiniteStrings graph = new GraphTokenStreamFiniteStrings(cts);
+    Iterator<TokenStream> it = graph.getFiniteStrings();
+    assertTrue(it.hasNext());
+    assertTokenStream(it.next(), new String[] {"3d", "printer"}, new int[] {1, 2});
+    assertFalse(it.hasNext());
+  }
 
 }
